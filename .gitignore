@@ -1,0 +1,6 @@
+# ignore builds
+build/
+ 
+# ignore all xcode settings besides the project
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
