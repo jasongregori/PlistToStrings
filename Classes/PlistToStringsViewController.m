@@ -11,7 +11,7 @@
 #import <pwd.h>
 
 @implementation PlistToStringsViewController
-@synthesize pathField, extField;
+@synthesize pathField, extField, rename, matches;
 
 - (void)showError:(NSError *)error {
   [[[[UIAlertView alloc] initWithTitle:@"ERROR"
@@ -31,6 +31,19 @@
 - (IBAction)convert {
   NSString *path = pathField.text;
   NSString *ext = extField.text;
+  NSString *name = ([rename.text length] ? rename.text : nil);
+  NSArray *keys = ([self.matches.text length]
+                   ? [self.matches.text componentsSeparatedByString:@", "]
+                   : nil);
+  
+  if (keys) {
+    // make them all uppercase so case does not matter
+    NSMutableArray *array = [NSMutableArray array];
+    for (NSString *key in keys) {
+      [array addObject:[key uppercaseString]];
+    }
+    keys = array;
+  }
   
   // Desktop
   NSString *startPath = nil;
@@ -52,19 +65,36 @@
     [self showError:error];
   }
   
-  for (NSString *subpath in [subPaths pathsMatchingExtensions:[NSArray arrayWithObject:ext]]) {
+  for (NSString *subpath in [subPaths filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"self.lastPathComponent contains[cd] %@", ext]]) {
+    //    for (NSString *subpath in [subPaths pathsMatchingExtensions:[NSArray arrayWithObject:ext]]) {
     // change it and save it
     NSDictionary *plist = [NSDictionary dictionaryWithContentsOfFile:[path stringByAppendingPathComponent:subpath]];
     NSMutableString *strings = [NSMutableString string];
     
-    for (NSString *key in [[plist allKeys] sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)]) {
-      [strings appendFormat:@"\n\"%@\" = \"%@\";\n", [self sanitizeString:key], [self sanitizeString:[plist objectForKey:key]]];
+    NSArray *allKeys = [plist allKeys];
+    if (keys) {
+      allKeys = [allKeys filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"self.uppercaseString IN %@", keys]];
+    }
+    
+    for (NSString *key in [allKeys sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)]) {
+      if (!keys || [keys containsObject:key]) {
+        // only copy if its matched
+        [strings appendFormat:@"\n\"%@\" = \"%@\";\n", [self sanitizeString:key], [self sanitizeString:[plist objectForKey:key]]];
+      }
     }
     
     if ([strings length] > 0) {
       // new path
-      NSString *newPath = [savePath stringByAppendingPathComponent:
-                           [[subpath stringByDeletingPathExtension] stringByAppendingPathExtension:@"strings"]];
+      NSString *newPath = nil;
+      
+      if (name) {
+        newPath = [savePath stringByAppendingPathComponent:
+                   [[subpath stringByDeletingLastPathComponent] stringByAppendingPathComponent:[NSString stringWithFormat:@"%@.strings", name]]];
+      }
+      else {
+        newPath = [savePath stringByAppendingPathComponent:
+                   [[subpath stringByDeletingPathExtension] stringByAppendingPathExtension:@"strings"]];
+      }
       
       // make sure the path to this new file exists
       NSError *error;
@@ -86,6 +116,8 @@
 - (void)dealloc {
   self.pathField = nil;
   self.extField = nil;
+  self.rename = nil;
+  self.matches = nil;
   
   [super dealloc];
 }

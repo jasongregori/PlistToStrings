@@ -13,6 +13,8 @@
 }
 @property (nonatomic, retain) IBOutlet UITextField *pathField;
 @property (nonatomic, retain) IBOutlet UITextField *extField;
+@property (nonatomic, retain) IBOutlet UITextField *rename;
+@property (nonatomic, retain) IBOutlet UITextField *matches;
 
 - (IBAction)convert;
 
